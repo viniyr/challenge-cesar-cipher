@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
+import mysql.connector
+import sqlite3
 import requests
 import random
 import re
@@ -18,6 +20,13 @@ tags_metadata = [
 
 app = FastAPI(openapi_tags=tags_metadata)
 
+#DB SESSION
+connection = sqlite3.connect(':memory:', check_same_thread=False)
+cursor = connection.cursor()
+
+cursor.execute('CREATE TABLE facts (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, fact VARCHAR(255), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)')
+cursor.execute('CREATE TABLE breeds (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, breed VARCHAR(255), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)')
+#
 
 class payloadEsperadoParaDescriptografia(BaseModel):
     frase_criptografada: str
@@ -88,10 +97,45 @@ def resolveCifra(payloadEsperado: payloadEsperadoParaDescriptografia):
 
     return {"decripted_message": mensagem_decriptografada}
 
+@app.get('/saveFact')
+def saveFact(): 
+
+    fact = getMessageFromDogApi()
+    breed = getDogBreed()
+
+    cursor.execute("SELECT facts.*, breeds.breed FROM facts INNER JOIN breeds ON breeds.breed LIKE ('%' || facts.fact || '%')")
+
+    
+
+
+def getDogBreed(): 
+    urlDogBreedApi = 'https://api.thedogapi.com/'
+    response = requests.get(f"{urlDogBreedApi}/v1/breeds?")
+
+    responseJson = response.json()
+    
+    for breed in responseJson:
+        breedName = breed["name"].lower()
+        cursor.execute("INSERT INTO breeds (breed) VALUES(?);", (breedName,))  
+        connection.commit()
+
+    return response.json()
+
+
 
 def getMessageFromDogApi():
 
+
     urlDogApi = 'http://dog-api.kinduff.com'
-    response = requests.get(f"{urlDogApi}/api/facts")
+    for n in range(40):
+        
+            
+                response = requests.get(f"{urlDogApi}/api/facts")
+
+                responseJson = response.json()
+                responseFormated = responseJson["facts"][0].lower().replace(',', '')
+                cursor.execute("INSERT INTO facts (fact) VALUES(?);", (responseFormated,))  
+                connection.commit()
+
 
     return response.json()
