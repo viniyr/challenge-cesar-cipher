@@ -1,10 +1,13 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 import mysql.connector
-import sqlite3
 import requests
 import random
 import re
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 tags_metadata = [
     {
@@ -21,11 +24,14 @@ tags_metadata = [
 app = FastAPI(openapi_tags=tags_metadata)
 
 #DB SESSION
-connection = sqlite3.connect(':memory:', check_same_thread=False)
-cursor = connection.cursor()
 
-cursor.execute('CREATE TABLE facts (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, fact VARCHAR(255), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)')
-cursor.execute('CREATE TABLE breeds (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, breed VARCHAR(255), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)')
+mydb = mysql.connector.connect(
+    host=os.getenv('DB_HOST'),
+    user=os.getenv('DB_USER'),
+    password=os.getenv('DB_PASSWORD'),
+    database=os.getenv('DB_DATABASE')
+  )
+cursor = mydb.cursor()
 #
 
 class payloadEsperadoParaDescriptografia(BaseModel):
@@ -100,12 +106,31 @@ def resolveCifra(payloadEsperado: payloadEsperadoParaDescriptografia):
 @app.get('/saveFact')
 def saveFact(): 
 
+    cursor.execute("DELETE FROM facts")
+    cursor.execute("DELETE FROM breeds")
+
     fact = getMessageFromDogApi()
     breed = getDogBreed()
 
-    cursor.execute("SELECT facts.*, breeds.breed FROM facts INNER JOIN breeds ON breeds.breed LIKE ('%' || facts.fact || '%')")
+    cursor.execute("SELECT * FROM facts INNER JOIN breeds ON facts.fact LIKE CONCAT('%', breeds.breed, '%');")
 
+    resultsFromSQL = cursor.fetchall()
+    arrayWithResults = []
+
+    for row in resultsFromSQL:
+        obj = {
+            "Id":  row[0],
+            "Fact": row[1],
+            "Breed":  row[5],
+        }
+
+        arrayWithResults.append(obj)
     
+    return {
+        'Total facts with breed association':  len(resultsFromSQL),
+        'Results': arrayWithResults
+    }
+
 
 
 def getDogBreed(): 
@@ -116,8 +141,8 @@ def getDogBreed():
     
     for breed in responseJson:
         breedName = breed["name"].lower()
-        cursor.execute("INSERT INTO breeds (breed) VALUES(?);", (breedName,))  
-        connection.commit()
+        cursor.execute("INSERT INTO breeds (breed) VALUES(%s);", [breedName])  
+        mydb.commit()
 
     return response.json()
 
@@ -128,14 +153,11 @@ def getMessageFromDogApi():
 
     urlDogApi = 'http://dog-api.kinduff.com'
     for n in range(40):
-        
             
-                response = requests.get(f"{urlDogApi}/api/facts")
-
-                responseJson = response.json()
-                responseFormated = responseJson["facts"][0].lower().replace(',', '')
-                cursor.execute("INSERT INTO facts (fact) VALUES(?);", (responseFormated,))  
-                connection.commit()
-
+        response = requests.get(f"{urlDogApi}/api/facts")
+        responseJson = response.json()
+        responseFormated = responseJson["facts"][0].lower().replace(',', '')
+        cursor.execute("INSERT INTO facts (fact) VALUES(%s);", [responseFormated])  
+        mydb.commit()
 
     return response.json()
