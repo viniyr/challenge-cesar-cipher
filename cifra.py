@@ -18,6 +18,10 @@ tags_metadata = [
         "name": "resolveCifra",
         "description": "Decrypt a message by passing the key and the message.",
     },
+        {
+        "name": "saveFacts",
+        "description": "Will save a fact from the database and associate with a breed available from the dog api.",
+    }
 ]
 
 
