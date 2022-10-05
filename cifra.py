@@ -47,14 +47,6 @@ class payloadEsperadoParaDescriptografia(BaseModel):
 class responseModelForResolve(BaseModel):
     decripted_message: str
 
-class factAndBreed(BaseModel): 
-    id: int
-    fact: str
-    breed: str
-
-class responseModelForSaveFact(BaseModel):
-    total_facts: int
-    result: List[factAndBreed]
 
 
 @app.get("/getCifra", tags=["getCifra"], response_model=payloadEsperadoParaDescriptografia)
@@ -117,7 +109,7 @@ def resolveCifra(payloadEsperado: payloadEsperadoParaDescriptografia):
 
     return {"decripted_message": mensagem_decriptografada}
 
-@app.get('/saveFact', tags=["saveFact"], response_model=responseModelForSaveFact)
+@app.get('/saveFact', tags=["saveFact"])
 def saveFact(): 
 
     cursor.execute("DELETE FROM facts")
@@ -133,7 +125,6 @@ def saveFact():
 
     for row in resultsFromSQL:
         obj = {
-            "Id":  row[0],
             "Fact": row[1],
             "Breed":  row[5],
         }
