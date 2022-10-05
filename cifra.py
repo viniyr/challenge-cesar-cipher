@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
+from typing import List
 import mysql.connector
 import requests
 import random
@@ -18,10 +19,10 @@ tags_metadata = [
         "name": "resolveCifra",
         "description": "Decrypt a message by passing the key and the message.",
     },
-        {
-        "name": "saveFacts",
+    {
+        "name": "saveFact",
         "description": "Will save a fact from the database and associate with a breed available from the dog api.",
-    }
+    },
 ]
 
 
@@ -45,6 +46,15 @@ class payloadEsperadoParaDescriptografia(BaseModel):
 
 class responseModelForResolve(BaseModel):
     decripted_message: str
+
+class factAndBreed(BaseModel): 
+    id: int
+    fact: str
+    breed: str
+
+class responseModelForSaveFact(BaseModel):
+    total_facts: int
+    result: List[factAndBreed]
 
 
 @app.get("/getCifra", tags=["getCifra"], response_model=payloadEsperadoParaDescriptografia)
@@ -107,7 +117,7 @@ def resolveCifra(payloadEsperado: payloadEsperadoParaDescriptografia):
 
     return {"decripted_message": mensagem_decriptografada}
 
-@app.get('/saveFact')
+@app.get('/saveFact', tags=["saveFact"], response_model=responseModelForSaveFact)
 def saveFact(): 
 
     cursor.execute("DELETE FROM facts")
